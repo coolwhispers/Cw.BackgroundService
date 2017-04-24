@@ -41,9 +41,11 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BackgroundService.cs" />
-    <Compile Include="BackgroundServiceList.cs" />
-    <Compile Include="IBackgroundService.cs" />
+    <Compile Include="Exceptions.cs" />
+    <Compile Include="Process.cs" />
+    <Compile Include="ProcessItem.cs" />
+    <Compile Include="ProcessList.cs" />
+    <Compile Include="IBackgroundProcess.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

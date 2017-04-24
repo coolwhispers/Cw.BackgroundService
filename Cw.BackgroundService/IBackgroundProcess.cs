@@ -6,7 +6,10 @@ using System.Threading.Tasks;
 
 namespace Cw.BackgroundService
 {
-    public interface IBackgroundService
+    /// <summary>
+    /// Background Process Interface
+    /// </summary>
+    public interface IBackgroundProcess
     {
         /// <summary>
         /// Background Start
