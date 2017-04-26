@@ -1,17 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Runtime.InteropServices;
-using System.Runtime.Serialization;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Cw.BackgroundService
 {
     public class BackgroundProcessException : Exception
     {
         private int _errorCode;
+
         internal BackgroundProcessException(int errorCode)
         {
             _errorCode = errorCode;

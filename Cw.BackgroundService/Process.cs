@@ -1,9 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace Cw.BackgroundService
@@ -23,7 +20,7 @@ namespace Cw.BackgroundService
         }
 
         private static ConcurrentDictionary<Guid, ProcessItem> _services = new ConcurrentDictionary<Guid, ProcessItem>();
-        
+
         /// <summary>
         /// Adds the specified service.
         /// </summary>
@@ -37,7 +34,7 @@ namespace Cw.BackgroundService
             {
                 id = Guid.NewGuid();
             }
-            while (_services.TryAdd(id, newService));
+            while (!_services.TryAdd(id, newService));
 
             newService.Start();
 
@@ -63,6 +60,7 @@ namespace Cw.BackgroundService
             if (_services.ContainsKey(id))
             {
                 ProcessItem service;
+
                 _services.TryRemove(id, out service);
 
                 service.Stop();
@@ -121,6 +119,5 @@ namespace Cw.BackgroundService
 
             return _services[id].IsServiceStopped;
         }
-
     }
 }

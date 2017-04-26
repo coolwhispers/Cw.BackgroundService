@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace Cw.BackgroundService
@@ -20,7 +18,6 @@ namespace Cw.BackgroundService
 
         private ProcessList()
         {
-
         }
 
         private List<Guid> _serivceIds = new List<Guid>();
@@ -55,7 +52,7 @@ namespace Cw.BackgroundService
             {
                 tasks.Add(Process.StopAsync(id));
             }
-            
+
             foreach (var task in tasks)
             {
                 task.Wait();

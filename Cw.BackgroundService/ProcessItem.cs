@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 
 namespace Cw.BackgroundService
 {
@@ -13,6 +9,7 @@ namespace Cw.BackgroundService
     {
         private IBackgroundProcess _serivce;
         private Task _task;
+
         internal ProcessItem(IBackgroundProcess serivce)
         {
             IsServiceStopped = true;
@@ -56,7 +53,6 @@ namespace Cw.BackgroundService
         {
             while (!_task.IsCompleted)
             {
-
             }
 
             IsServiceStopped = true;
@@ -70,6 +66,5 @@ namespace Cw.BackgroundService
         {
             await Task.Run(() => Stop());
         }
-        
     }
 }
