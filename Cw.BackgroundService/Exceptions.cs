@@ -2,14 +2,33 @@
 
 namespace Cw.BackgroundService
 {
+    internal enum ExceptionCode
+    {
+        
+    }
+
+    /// <summary>
+    /// 背景服務例外錯誤
+    /// </summary>
+    /// <seealso cref="System.Exception" />
     public class BackgroundProcessException : Exception
     {
-        private int _errorCode;
-
-        internal BackgroundProcessException(int errorCode)
+        internal static BackgroundProcessException Create(ExceptionCode errorCode)
         {
-            _errorCode = errorCode;
+            var errorMessage = errorCode.ToString();
+
+            return new BackgroundProcessException(errorMessage);
         }
+
+        internal BackgroundProcessException(string message) : this(message, "https://github.com/coolwhispers/Cw.BackgroundService")
+        {
+        }
+
+        internal BackgroundProcessException(string message, string helpLink) : base(message)
+        {
+            HelpLink = helpLink;
+        }
+
 
         /// <summary>
         /// 取得或設定與這個例外狀況相關聯說明檔的連結。
