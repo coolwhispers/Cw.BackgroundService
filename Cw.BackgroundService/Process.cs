@@ -128,12 +128,9 @@ namespace Cw.BackgroundService
         /// <param name="servicesToRun">The services to run.</param>
         public static void RunInteractive(ServiceBase[] servicesToRun)
         {
-            // 利用Reflection取得非公開之 OnStart() 方法資訊
             var onStartMethod = typeof(ServiceBase).GetMethod("OnStart", BindingFlags.Instance | BindingFlags.NonPublic);
-            // 利用Reflection取得非公開之 OnStop() 方法資訊
             var onStopMethod = typeof(ServiceBase).GetMethod("OnStop", BindingFlags.Instance | BindingFlags.NonPublic);
-
-            // 執行 OnStart 方法
+            
             foreach (ServiceBase service in servicesToRun)
             {
                 Console.Write("Starting {0}...", service.ServiceName);
@@ -143,8 +140,7 @@ namespace Cw.BackgroundService
 
             Console.WriteLine("Press any key to stop the services");
             Console.ReadKey();
-
-            // 執行 OnStop 方法
+            
             foreach (ServiceBase service in servicesToRun)
             {
                 Console.Write("Stopping {0}...", service.ServiceName);
