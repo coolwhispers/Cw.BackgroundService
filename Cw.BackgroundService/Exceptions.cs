@@ -33,7 +33,6 @@ namespace Cw.BackgroundService
         /// <summary>
         /// 取得或設定與這個例外狀況相關聯說明檔的連結。
         /// </summary>
-        /// </exception>
         public override string HelpLink { get; set; }
 
         /// <summary>
