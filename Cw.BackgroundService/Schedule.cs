@@ -80,6 +80,7 @@ namespace Cw.BackgroundService
         /// <param name="func">The function.</param>
         public Schedule(Func<bool> func)
         {
+            _scheduleMode = ScheduleMode.Custom;
             _customSchedule = new CustomSchedule(func);
         }
 
