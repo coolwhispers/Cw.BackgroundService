@@ -194,7 +194,88 @@ namespace Cw.BackgroundService
         /// 執行條件式
         /// </summary>
         /// <returns></returns>
-        protected abstract bool RunCondition();
+        protected virtual bool RunCondition()
+        {
+            switch (_scheduleMode)
+            {
+                case ScheduleMode.Interval:
+                    return IntervalSchedule();
+
+                case ScheduleMode.Daily:
+                    return DailySchedule();
+
+                case ScheduleMode.Weekly:
+                    return WeeklySchedule();
+
+                case ScheduleMode.Monthly:
+                    return MonthlySchedule();
+            }
+
+            return false;
+        }
+
+        private bool IntervalSchedule()
+        {
+            var seconds = (DateTime.UtcNow - LastProcessTime).TotalSeconds;
+
+            var half = _interval / 2;
+
+            if (seconds > half && seconds < 10)
+            {
+                Thread.Sleep(10000);
+            }
+
+            return (DateTime.UtcNow - LastProcessTime).TotalSeconds < 0;
+        }
+
+        private bool DailySchedule()
+        {
+            var now = DateTime.UtcNow;
+            var nextTime = now.Date.AddHours(_hours).AddMinutes(_minutes);
+            var compare = now.CompareTo(nextTime);
+            if (compare > 0)
+            {
+                Thread.Sleep(nextTime.AddDays(1) - now);
+            }
+            else if (compare < 0)
+            {
+                Thread.Sleep(now - nextTime);
+            }
+
+            return true;
+        }
+
+        private bool WeeklySchedule()
+        {
+            var now = DateTime.UtcNow;
+            var nextTime = now.Date.AddHours(_hours).AddMinutes(_minutes);
+
+            var compare = now.CompareTo(nextTime);
+            while (compare < 0 && nextTime.DayOfWeek != _dayOfWeek)
+            {
+                nextTime = nextTime.AddDays(1);
+            }
+
+            Thread.Sleep(nextTime - now);
+
+            return true;
+        }
+
+        private bool MonthlySchedule()
+        {
+            var now = DateTime.UtcNow;
+            var nextTime = new DateTime(now.Year, now.Month, _day, _hours, _minutes, 0);
+
+            var compare = now.CompareTo(nextTime);
+            while (compare < 0 && nextTime.DayOfWeek != _dayOfWeek)
+            {
+                nextTime = nextTime.AddDays(1);
+            }
+
+            Thread.Sleep(nextTime - now);
+
+            return true;
+        }
 
         /// <summary>
         /// 儲存執行條件
