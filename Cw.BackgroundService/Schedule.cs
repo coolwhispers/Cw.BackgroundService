@@ -70,6 +70,19 @@ namespace Cw.BackgroundService
             _minutes = minutes;
         }
 
+        private delegate bool CustomSchedule();
+
+        private CustomSchedule _customSchedule;
+
+        /// <summary>
+        /// 自訂執行條件式
+        /// </summary>
+        /// <param name="func">The function.</param>
+        public Schedule(Func<bool> func)
+        {
+            _customSchedule = new CustomSchedule(func);
+        }
+
         private int _day;
 
         /// <summary>
@@ -209,6 +222,9 @@ namespace Cw.BackgroundService
 
                 case ScheduleMode.Monthly:
                     return MonthlySchedule();
+
+                case ScheduleMode.Custom:
+                    return _customSchedule.Invoke();
             }
 
             return false;
