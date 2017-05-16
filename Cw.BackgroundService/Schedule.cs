@@ -142,7 +142,7 @@ namespace Cw.BackgroundService
 
             do
             {
-                while (RunCondition())
+                if (RunCondition())
                 {
                     var instance = Activator.CreateInstance<T>();
 
