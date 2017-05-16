@@ -147,22 +147,27 @@ namespace Cw.BackgroundService
                     var instance = Activator.CreateInstance<T>();
 
                     _isRuning = true;
-
-                    instance.BackgroundStart();
-
-                    if (instance is IDisposable)
+                    try
                     {
-                        ((IDisposable)instance).Dispose();
+                        instance.BackgroundStart();
+
+                        if (instance is IDisposable)
+                        {
+                            ((IDisposable)instance).Dispose();
+                        }
+
+                        _isRuning = false;
+
+                        _lastProcessTime = DateTime.UtcNow;
+
+                        GC.Collect();
                     }
-
-                    _isRuning = false;
-
-                    _lastProcessTime = DateTime.UtcNow;
-
-                    GC.Collect();
+                    catch (Exception)
+                    {
+                    }
                 }
             }
-            while (_isStop);
+            while (!_isStop);
 
             _isComplete = true;
         }
@@ -228,6 +233,7 @@ namespace Cw.BackgroundService
                     return _customSchedule.Invoke();
             }
 
+            _isStop = true;
             return false;
         }
 
