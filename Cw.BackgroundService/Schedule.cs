@@ -5,10 +5,29 @@ using System.Threading.Tasks;
 namespace Cw.BackgroundService
 {
     /// <summary>
+    /// 排程物件介面
+    /// </summary>
+    public interface ISchedule
+    {
+        /// <summary>
+        /// 開始執行
+        /// </summary>
+        void Start();
+        /// <summary>
+        /// 要求停止
+        /// </summary>
+        void Stop();
+        /// <summary>
+        /// 要求停止
+        /// </summary>
+        Task StopAsync();
+    }
+
+    /// <summary>
     /// 排程服務
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public abstract class Schedule<T> where T : IBackgroundProcess
+    public sealed class Schedule<T> : ISchedule where T : IBackgroundProcess
     {
         /// <summary>
         /// 排程模式
@@ -134,7 +153,7 @@ namespace Cw.BackgroundService
         /// <summary>
         /// 執行
         /// </summary>
-        public void Process()
+        internal void Process()
         {
             _isStop = false;
             _isComplete = false;
@@ -175,7 +194,7 @@ namespace Cw.BackgroundService
         /// <summary>
         /// 開始執行
         /// </summary>
-        private void Start()
+        public void Start()
         {
             _thread = new Thread(new ThreadStart(Process));
 
@@ -213,7 +232,7 @@ namespace Cw.BackgroundService
         /// 執行條件式
         /// </summary>
         /// <returns></returns>
-        protected virtual bool RunCondition()
+        private bool RunCondition()
         {
             switch (_scheduleMode)
             {
@@ -239,16 +258,24 @@ namespace Cw.BackgroundService
 
         private bool IntervalSchedule()
         {
-            var seconds = (DateTime.UtcNow - LastProcessTime).TotalSeconds;
+            var seconds = (LastProcessTime.AddSeconds(_interval) - DateTime.UtcNow).TotalSeconds;
 
             var half = _interval / 2;
 
-            if (seconds > half && seconds < 10)
+            if (seconds > half && seconds > 10)
             {
                 Thread.Sleep(10000);
             }
+            else if (seconds > 1)
+            {
+                Thread.Sleep(1000);
+            }
+            else if (seconds > 0)
+            {
+                Thread.Sleep(Convert.ToInt32(seconds * 1000));
+            }
 
-            return (DateTime.UtcNow - LastProcessTime).TotalSeconds < 0;
+            return (LastProcessTime.AddSeconds(_interval) - DateTime.UtcNow).TotalSeconds < 0;
         }
 
         private bool DailySchedule()
@@ -303,7 +330,7 @@ namespace Cw.BackgroundService
         /// <summary>
         /// 儲存執行條件
         /// </summary>
-        protected void SaveConfig(string str)
+        private void SaveConfig(string str)
         {
             var typeNmae = this.GetType().Name;
 
@@ -314,7 +341,7 @@ namespace Cw.BackgroundService
         /// 取得執行條件
         /// </summary>
         /// <returns></returns>
-        protected string GetConfig()
+        private string GetConfig()
         {
             var typeNmae = this.GetType().Name;
 
