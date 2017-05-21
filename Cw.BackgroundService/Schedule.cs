@@ -17,6 +17,11 @@ namespace Cw.BackgroundService
         /// 要求停止
         /// </summary>
         void Stop();
+
+        /// <summary>
+        /// 強制停止
+        /// </summary>
+        void Abort();
         /// <summary>
         /// 要求停止
         /// </summary>
@@ -143,12 +148,12 @@ namespace Cw.BackgroundService
 
         private Thread _thread;
 
-        private DateTime _lastProcessTime;
-
         /// <summary>
         /// 最後執行時間
         /// </summary>
-        public DateTime LastProcessTime => _lastProcessTime;
+        public DateTime LastProcessTime { get; private set; }
+
+        private T _instance;
 
         /// <summary>
         /// 執行
@@ -163,27 +168,29 @@ namespace Cw.BackgroundService
             {
                 if (RunCondition())
                 {
-                    var instance = Activator.CreateInstance<T>();
+                    _instance = Activator.CreateInstance<T>();
 
                     _isRuning = true;
                     try
                     {
-                        instance.BackgroundStart();
+                        _instance.BackgroundStart();
 
-                        if (instance is IDisposable)
+                        if (_instance is IDisposable)
                         {
-                            ((IDisposable)instance).Dispose();
+                            ((IDisposable)_instance).Dispose();
                         }
-
-                        _isRuning = false;
-
-                        _lastProcessTime = DateTime.UtcNow;
-
-                        GC.Collect();
                     }
                     catch (Exception)
                     {
                     }
+
+                    _instance = default(T);
+
+                    _isRuning = false;
+
+                    LastProcessTime = DateTime.UtcNow;
+
+                    GC.Collect();
                 }
             }
             while (!_isStop);
@@ -208,14 +215,29 @@ namespace Cw.BackgroundService
         {
             _isStop = true;
 
-            while (!_isComplete)
+            if (_instance != null)
             {
-                if (!_isRuning)
-                {
-                    _isRuning = false;
-                    _thread.Abort();
-                    _isComplete = true;
-                }
+                _instance.BackgroundStop();
+                _instance = default(T);
+            }
+
+            while (!_isComplete)
+            {                
+            }
+        }
+
+        /// <summary>
+        /// 強制停止
+        /// </summary>
+        public void Abort()
+        {
+            _isStop = true;
+
+            if (!_isRuning)
+            {
+                _isRuning = false;
+                _thread.Abort();
+                _isComplete = true;
             }
         }
 

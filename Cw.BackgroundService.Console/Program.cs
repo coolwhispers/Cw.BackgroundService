@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace Cw.BackgroundService.Console
 {
@@ -33,6 +34,11 @@ namespace Cw.BackgroundService.Console
             public void BackgroundStart()
             {
                 System.Console.WriteLine("Tested");
+            }
+
+            public void BackgroundStop()
+            {
+                System.Console.WriteLine("Stop");
             }
         }
     }
