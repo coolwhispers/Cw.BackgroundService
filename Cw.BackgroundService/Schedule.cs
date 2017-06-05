@@ -185,16 +185,11 @@ namespace Cw.BackgroundService
             Thread.Sleep(nextTime - now);
         }
 
-        private static bool IsExpired(DateTime nextTime)
-        {
-            return DateTime.Now.CompareTo(nextTime) <= 0;
-        }
-
         private static bool ReturnValue(DateTime nextTime, DateTime now)
         {
             Sleep(nextTime, now);
 
-            return IsExpired(nextTime);
+            return DateTime.Now.CompareTo(nextTime) <= 0;
         }
 
         /// <summary>
