@@ -206,10 +206,9 @@ namespace Cw.BackgroundService
         {
             return new Func<DateTime, bool>(lastProcessTime =>
              {
-                 var now = DateTime.Now;
                  var nextTime = lastProcessTime.AddSeconds(seconds);
 
-                 return ReturnValue(nextTime, now);
+                 return ReturnValue(nextTime, DateTime.Now);
              });
         }
 
@@ -221,11 +220,15 @@ namespace Cw.BackgroundService
         /// <returns></returns>
         public static Func<DateTime, bool> Daily(int hours, int minutes)
         {
-            return new Func<DateTime, bool>(x =>
+            return new Func<DateTime, bool>(lastProcessTime =>
             {
                 var now = DateTime.Now;
                 var nextTime = now.Date.AddHours(hours).AddMinutes(minutes);
-                var compare = now.CompareTo(nextTime);
+
+                if (now.CompareTo(nextTime) < 0 && lastProcessTime.Date == nextTime.Date)
+                {
+                    nextTime = nextTime.AddMonths(1);
+                }
 
                 return ReturnValue(nextTime, now);
             });
@@ -269,10 +272,9 @@ namespace Cw.BackgroundService
             return new Func<DateTime, bool>(lastProcessTime =>
             {
                 var now = DateTime.Now;
-                var lastProcessDay = lastProcessTime.Date;
                 var nextTime = new DateTime(now.Year, now.Month, day, hours, minutes, 0);
 
-                if (now.CompareTo(nextTime) < 0 && lastProcessDay.Date == nextTime.Date)
+                if (now.CompareTo(nextTime) < 0 && lastProcessTime.Date == nextTime.Date)
                 {
                     nextTime = nextTime.AddMonths(1);
                 }
