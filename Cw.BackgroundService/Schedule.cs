@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -7,7 +9,6 @@ namespace Cw.BackgroundService
     /// <summary>
     /// 排程服務
     /// </summary>
-    /// <typeparam name="T"></typeparam>
     public abstract class Schedule
     {
         /// <summary>
@@ -51,12 +52,17 @@ namespace Cw.BackgroundService
         /// <param name="scheduleCondition">The schedule condition.</param>
         protected Schedule(Func<DateTime, bool> scheduleCondition)
         {
-            DefaultStopWait = 3000;
             _scheduleCondition = new Condition(scheduleCondition);
-            LoadLastProcessTime();
+            Init();
+        }
+
+        private void Init()
+        {
+            DefaultStopWait = 3000;
             _isRun = false;
             _isComplete = false;
             _isExecute = false;
+            LoadLastProcessTime();
         }
 
         private void LoadLastProcessTime()
@@ -68,7 +74,7 @@ namespace Cw.BackgroundService
         {
             LastProcessTime = DateTime.Now;
         }
-        
+
         private bool _isRun;
 
         private bool _isComplete;
@@ -85,7 +91,7 @@ namespace Cw.BackgroundService
         /// <summary>
         /// 排程最後存活時間
         /// </summary>
-        public DateTime LastAliveTime { get; private set; }
+        public bool IsAlive => _thread == null ? false : _thread.IsAlive;
 
         /// <summary>
         /// 執行物件
@@ -99,8 +105,6 @@ namespace Cw.BackgroundService
         {
             do
             {
-                LastAliveTime = DateTime.Now;
-
                 if (_scheduleCondition.Invoke(LastProcessTime))
                 {
                     try
@@ -153,6 +157,11 @@ namespace Cw.BackgroundService
         /// <param name="abort">強制停止</param>
         public void Stop(bool abort = false)
         {
+            if (!IsAlive)
+            {
+                Init();
+            }
+
             _isRun = false;
 
             while (!_isComplete)
@@ -279,85 +288,74 @@ namespace Cw.BackgroundService
         /// </summary>
         /// <param name="seconds">間格秒數</param>
         /// <returns></returns>
-        public static Func<DateTime, bool> Interval(int seconds)
+        private static Func<DateTime, bool> Interval(int seconds)
         {
-            return new Func<DateTime, bool>(lastProcessTime =>
-             {
-                 var nextTime = lastProcessTime.AddSeconds(seconds);
-
-                 return SleepReturn(nextTime, DateTime.Now);
-             });
+            return lastProcessTime => SleepReturn(lastProcessTime.AddSeconds(seconds), DateTime.Now);
         }
 
         /// <summary>
-        /// 每天執行
+        /// 每N小時執行
         /// </summary>
-        /// <param name="hours">小時</param>
         /// <param name="minutes">分鐘</param>
+        /// <param name="hours">每N小時</param>
         /// <returns></returns>
-        public static Func<DateTime, bool> Daily(int hours, int minutes)
+        public static Func<DateTime, bool> DefiniteHours(int hours = 1, int minutes = 0)
         {
-            return new Func<DateTime, bool>(lastProcessTime =>
+            if (hours < 1) { hours = 1; }
+            if (minutes < 0) { minutes = 0; }
+
+            return lastProcessTime =>
             {
                 var now = DateTime.Now;
-                var nextTime = now.Date.AddHours(hours).AddMinutes(minutes);
+                var nextTime = now.Date.AddMinutes(minutes).AddHours(hours);
 
-                if (now.CompareTo(nextTime) < 0 && lastProcessTime.Date == nextTime.Date)
+                while (now.CompareTo(nextTime) < 0 && lastProcessTime > nextTime)
                 {
-                    nextTime = nextTime.AddMonths(1);
+                    nextTime = nextTime.AddHours(hours);
                 }
 
                 return SleepReturn(nextTime, now);
-            });
+            };
         }
 
         /// <summary>
-        /// 每週執行
+        /// 每N天執行
         /// </summary>
-        /// <param name="dayOfWeek">星期</param>
-        /// <param name="hours">小時</param>
-        /// <param name="minutes">分鐘</param>
-        /// <returns></returns>
-        public static Func<DateTime, bool> Weekly(DayOfWeek dayOfWeek, int hours, int minutes)
-        {
-            return new Func<DateTime, bool>(lastProcessTime =>
-            {
-                var now = DateTime.Now;
-                var nextTime = now.Date.AddHours(hours).AddMinutes(minutes);
-
-                if (now.CompareTo(nextTime) < 0)
-                {
-                    while (nextTime.DayOfWeek != dayOfWeek || nextTime.Date == lastProcessTime.Date)
-                    {
-                        nextTime = nextTime.AddDays(1);
-                    }
-                }
-
-                return SleepReturn(nextTime, now);
-            });
-        }
-
-        /// <summary>
-        /// 每月執行
-        /// </summary>
+        /// <param name="hours">時</param>
+        /// <param name="minutes">分</param>
         /// <param name="day">日期</param>
-        /// <param name="hours">小時</param>
-        /// <param name="minutes">分鐘</param>
+        /// <param name="dayOfWeeks">The day of weeks.</param>
         /// <returns></returns>
-        public static Func<DateTime, bool> Monthly(int day, int hours, int minutes)
+        public static Func<DateTime, bool> DefiniteDays(int hours = 0, int minutes = 0, int day = 1, params DayOfWeek[] dayOfWeeks)
         {
-            return new Func<DateTime, bool>(lastProcessTime =>
+            if (day < 1) { day = 1; }
+            if (hours < 0) { hours = 0; }
+            if (minutes < 0) { minutes = 0; }
+
+            return lastProcessTime =>
             {
                 var now = DateTime.Now;
-                var nextTime = new DateTime(now.Year, now.Month, day, hours, minutes, 0);
+                var nextTime = now.Date.AddMinutes(minutes).AddHours(hours).AddDays(day);
 
-                if (now.CompareTo(nextTime) < 0 && lastProcessTime.Date == nextTime.Date)
+                while (InWeekly(nextTime, dayOfWeeks))
                 {
-                    nextTime = nextTime.AddMonths(1);
+                    nextTime.AddDays(day);
+                }
+
+                while (now.CompareTo(nextTime) < 0 && lastProcessTime > nextTime)
+                {
+                    nextTime = nextTime.AddDays(day);
                 }
 
                 return SleepReturn(nextTime, now);
-            });
+            };
+        }
+
+        private static bool InWeekly(DateTime nextTime, DayOfWeek[] dayOfWeeks)
+        {
+            var list = dayOfWeeks == null ? new List<DayOfWeek>() : dayOfWeeks.ToList();
+
+            return list.Count > 0 ? dayOfWeeks.Contains(nextTime.DayOfWeek) : true;
         }
     }
 }
