@@ -8,25 +8,55 @@ namespace Cw.BackgroundService
     /// 排程服務
     /// </summary>
     /// <typeparam name="T"></typeparam>
-    public sealed class Schedule<T> where T : IBackgroundProcess
+    public abstract class Schedule
     {
+        /// <summary>
+        /// 使用傳入的 BackgroundProcess (這個物件不會執行IDisposable)
+        /// </summary>
+        /// <typeparam name="T">IBackgroundProcess</typeparam>
+        /// <param name="backgroundProcess">The background process.</param>
+        /// <param name="scheduleCondition">The schedule condition.</param>
+        /// <returns>ScheduleObject</returns>
+        public static Schedule Create<T>(T backgroundProcess, Func<DateTime, bool> scheduleCondition)
+            where T : class, IBackgroundProcess
+        {
+            return new ScheduleObject<T>(backgroundProcess, scheduleCondition);
+        }
+
+        /// <summary>
+        /// 自訂執行條件式
+        /// </summary>
+        /// <typeparam name="T">IBackgroundProcess</typeparam>
+        /// <param name="scheduleCondition">執行條件式(in DateTime LastProcessTime, return bool NeedExecute)</param>
+        /// <param name="args">執行參數</param>
+        /// <returns>ScheduleArguments</returns>
+        public static Schedule Create<T>(Func<DateTime, bool> scheduleCondition, params object[] args)
+            where T : class, IBackgroundProcess
+        {
+            return new ScheduleArguments<T>(scheduleCondition, args);
+        }
+
+        /// <summary>
+        /// The default stop wait
+        /// </summary>
+        protected int DefaultStopWait;
+
         private delegate bool Condition(DateTime lastProcessTime);
 
         private Condition _scheduleCondition;
 
         /// <summary>
-        /// 自訂執行條件式
+        /// Initializes a new instance of the <see cref="Schedule"/> class.
         /// </summary>
-        /// <param name="scheduleCondition">執行條件式(in DateTime LastProcessTime, out bool IfExecute)</param>
-        public Schedule(Func<DateTime, bool> scheduleCondition)
+        /// <param name="scheduleCondition">The schedule condition.</param>
+        protected Schedule(Func<DateTime, bool> scheduleCondition)
         {
+            DefaultStopWait = 3000;
+            _scheduleCondition = new Condition(scheduleCondition);
+            LoadLastProcessTime();
             _isRun = false;
             _isComplete = false;
             _isExecute = false;
-
-            _scheduleCondition = new Condition(scheduleCondition);
-
-            LoadLastProcessTime();
         }
 
         private void LoadLastProcessTime()
@@ -38,7 +68,7 @@ namespace Cw.BackgroundService
         {
             LastProcessTime = DateTime.Now;
         }
-
+        
         private bool _isRun;
 
         private bool _isComplete;
@@ -57,36 +87,15 @@ namespace Cw.BackgroundService
         /// </summary>
         public DateTime LastAliveTime { get; private set; }
 
-        private void Execute()
-        {
-            try
-            {
-                _isExecute = true;
-
-                var instance = Activator.CreateInstance<T>();
-
-                instance.BackgroundStart();
-
-                if (instance is IDisposable)
-                {
-                    ((IDisposable)instance).Dispose();
-                }
-            }
-            catch (Exception)
-            {
-            }
-            finally
-            {
-                SaveLastProcessTime();
-
-                _isExecute = false;
-            }
-        }
+        /// <summary>
+        /// 執行物件
+        /// </summary>
+        protected abstract void Execute();
 
         /// <summary>
         /// 執行
         /// </summary>
-        internal void Process()
+        private void Process()
         {
             do
             {
@@ -94,7 +103,19 @@ namespace Cw.BackgroundService
 
                 if (_scheduleCondition.Invoke(LastProcessTime))
                 {
-                    Execute();
+                    try
+                    {
+                        _isExecute = true;
+                        Execute();
+                    }
+                    catch (Exception)
+                    {
+                    }
+                    finally
+                    {
+                        SaveLastProcessTime();
+                        _isExecute = false;
+                    }
                 }
 
                 GC.Collect();
@@ -104,14 +125,14 @@ namespace Cw.BackgroundService
             _isComplete = true;
         }
 
-        private object startLock = new object();
+        private object _startLock = new object();
 
         /// <summary>
         /// 開始執行
         /// </summary>
         public void Start()
         {
-            lock (startLock)
+            lock (_startLock)
             {
                 if (_isRun == true)
                 {
@@ -138,13 +159,15 @@ namespace Cw.BackgroundService
             {
                 if (abort || !_isExecute)
                 {
+                    //要求強制停止或沒在執行則直接停止
                     _thread.Abort();
                     _isExecute = false;
                     _isComplete = true;
                 }
                 else
                 {
-                    Thread.Sleep(3000);
+                    //執行中 等待停止
+                    Thread.Sleep(DefaultStopWait);
                 }
             }
         }
@@ -160,6 +183,71 @@ namespace Cw.BackgroundService
     }
 
     /// <summary>
+    /// 使用傳入的 BackgroundProcess (這個物件不會執行IDisposable)
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <seealso cref="Cw.BackgroundService.Schedule" />
+    public sealed class ScheduleObject<T> : Schedule
+        where T : class, IBackgroundProcess
+    {
+        private T _importProcess;
+
+        /// <summary>
+        /// 使用傳入的 BackgroundProcess (這個物件不會執行IDisposable)
+        /// </summary>
+        /// <param name="scheduleCondition">The schedule condition.</param>
+        /// <param name="backgroundProcess">The background process.</param>
+        public ScheduleObject(T backgroundProcess, Func<DateTime, bool> scheduleCondition) : base(scheduleCondition)
+        {
+            _importProcess = backgroundProcess;
+        }
+
+        /// <summary>
+        /// 執行物件
+        /// </summary>
+        protected override void Execute()
+        {
+            _importProcess.BackgroundStart();
+        }
+    }
+
+    /// <summary>
+    /// 自訂執行條件式
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <seealso cref="Cw.BackgroundService.Schedule" />
+    public sealed class ScheduleArguments<T> : Schedule
+        where T : class, IBackgroundProcess
+    {
+        private object[] _args;
+
+        /// <summary>
+        /// 自訂執行條件式
+        /// </summary>
+        /// <param name="scheduleCondition">執行條件式(in DateTime LastProcessTime, return bool NeedExecute)</param>
+        /// <param name="args">執行參數</param>
+        public ScheduleArguments(Func<DateTime, bool> scheduleCondition, params object[] args) : base(scheduleCondition)
+        {
+            _args = args;
+        }
+
+        /// <summary>
+        /// 執行物件
+        /// </summary>
+        protected override void Execute()
+        {
+            var instance = Activator.CreateInstance(typeof(T), _args) as T;
+
+            instance.BackgroundStart();
+
+            if (instance is IDisposable)
+            {
+                ((IDisposable)instance).Dispose();
+            }
+        }
+    }
+
+    /// <summary>
     /// 執行條件
     /// </summary>
     public sealed class ScheduleCondition
@@ -168,26 +256,20 @@ namespace Cw.BackgroundService
         {
         }
 
-        private static void Sleep(DateTime nextTime, DateTime now)
+        private static bool SleepReturn(DateTime nextTime, DateTime now)
         {
-            if (now.CompareTo(nextTime) >= 0)
+            if (now.CompareTo(nextTime) < 0)
             {
-                return;
+                var sleepTimeSpan = nextTime - now;
+                if (sleepTimeSpan.TotalMinutes > 1)
+                {
+                    Thread.Sleep(15000);
+                }
+                else
+                {
+                    Thread.Sleep(sleepTimeSpan);
+                }
             }
-
-            var sleepTimeSpan = nextTime - now;
-            if (sleepTimeSpan.TotalMinutes > 1)
-            {
-                Thread.Sleep(15000);
-                return;
-            }
-
-            Thread.Sleep(nextTime - now);
-        }
-
-        private static bool ReturnValue(DateTime nextTime, DateTime now)
-        {
-            Sleep(nextTime, now);
 
             return DateTime.Now.CompareTo(nextTime) <= 0;
         }
@@ -203,7 +285,7 @@ namespace Cw.BackgroundService
              {
                  var nextTime = lastProcessTime.AddSeconds(seconds);
 
-                 return ReturnValue(nextTime, DateTime.Now);
+                 return SleepReturn(nextTime, DateTime.Now);
              });
         }
 
@@ -225,7 +307,7 @@ namespace Cw.BackgroundService
                     nextTime = nextTime.AddMonths(1);
                 }
 
-                return ReturnValue(nextTime, now);
+                return SleepReturn(nextTime, now);
             });
         }
 
@@ -251,7 +333,7 @@ namespace Cw.BackgroundService
                     }
                 }
 
-                return ReturnValue(nextTime, now);
+                return SleepReturn(nextTime, now);
             });
         }
 
@@ -274,7 +356,7 @@ namespace Cw.BackgroundService
                     nextTime = nextTime.AddMonths(1);
                 }
 
-                return ReturnValue(nextTime, now);
+                return SleepReturn(nextTime, now);
             });
         }
     }
